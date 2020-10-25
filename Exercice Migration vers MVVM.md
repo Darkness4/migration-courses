@@ -10,11 +10,11 @@ Pour cela :
 
 Forkez le dépôt [gaetanmaisse/ismin-android-2020-tp3](https://github.com/gaetanmaisse/ismin-android-2020-tp3) et mettez-le dans votre compte. :
 
-![image-20201025175626487](Exercice  Migration vers MVVM.assets/image-20201025175626487.png)
+![image-20201025175626487](Exercice Migration vers MVVM.assets/image-20201025175626487.png)
 
 Vous êtes censé obtenir ceci (Darkness4 étant mon compte) :
 
-![image-20201025175725676](Exercice  Migration vers MVVM.assets/image-20201025175725676.png)
+![image-20201025175725676](Exercice Migration vers MVVM.assets/image-20201025175725676.png)
 
 Clonez ce dépot.
 
@@ -29,6 +29,8 @@ Lorsque vous aurez terminé une tache, n'oubliez pas de `git add . && git commit
 
 Cela permettra de sauvegarder votre progression en cas de problème.
 
+<div style="page-break-after: always; break-after: page;"></div>
+
 ### Activez le Android [DataBinding](https://developer.android.com/topic/libraries/data-binding)
 
 Ouvrez le projet avec Android Studio.
@@ -37,7 +39,7 @@ Pour éviter des problèmes de compatibilité avec ce cours, nous allons mettre 
 
 1. Modifiez le `./gradle/wrapper/gradle-wrapper.properties` :
 
-   ![gradle-wrapper.properties](Exercice  Migration vers MVVM.assets/image-20201025181038621.png)
+   ![gradle-wrapper.properties](Exercice Migration vers MVVM.assets/image-20201025181038621.png)
 
 2. Et pour `distributionUrl`, nous utiliserons `https\://services.gradle.org/distributions/gradle-6.6.1-bin.zip`.
 
@@ -52,7 +54,7 @@ Pour éviter des problèmes de compatibilité avec ce cours, nous allons mettre 
 
 3. Modifiez ensuite le `build.gradle` **au niveau du projet** :
 
-   ![build.gradle (Project: Android)](Exercice  Migration vers MVVM.assets/image-20201025181444672.png)
+   ![build.gradle (Project: Android)](Exercice Migration vers MVVM.assets/image-20201025181444672.png)
 
    Mettez à jour le plugin en remplaçant `classpath "com.android.tools.build:gradle:4.0.1"` par `classpath "com.android.tools.build:gradle:4.1.0"`.
 
@@ -87,7 +89,7 @@ Pour éviter des problèmes de compatibilité avec ce cours, nous allons mettre 
 
 4. Modifiez ensuite le `build.gradle` au niveau du module `app` :
 
-   ![build.gradle (Module: Android.app)](Exercice  Migration vers MVVM.assets/image-20201025182212119.png)
+   ![build.gradle (Module: Android.app)](Exercice Migration vers MVVM.assets/image-20201025182212119.png)
 
    Nous allons utiliser les dernières normes de Gradle, mettre à jour les dépendances et ajouter le [DataBinding](https://developer.android.com/topic/libraries/data-binding) :
 
@@ -151,7 +153,7 @@ Pour éviter des problèmes de compatibilité avec ce cours, nous allons mettre 
 
 5. Synchronisez Gradle :
 
-   ![Sync Now](Exercice  Migration vers MVVM.assets/image-20201025181903416.png)
+   ![Sync Now](Exercice Migration vers MVVM.assets/image-20201025181903416.png)
 
 ### Transformez les layout xml en layout pouvant supporter le [DataBinding](https://developer.android.com/topic/libraries/data-binding)
 
@@ -224,15 +226,15 @@ La différence la plus flagrante est le fait que nous devons convertir les layou
 
 **Commençons par le `activity_main.xml` :**
 
-![activity_main.xml](Exercice  Migration vers MVVM.assets/image-20201025185045355.png)
+![activity_main.xml](Exercice Migration vers MVVM.assets/image-20201025185045355.png)
 
 - Placez le curseur sur le layout racine.
 
-  ![androidx.constraintlayout.widget.ConstraintLayout](Exercice  Migration vers MVVM.assets/image-20201025185136568.png)
+  ![androidx.constraintlayout.widget.ConstraintLayout](Exercice Migration vers MVVM.assets/image-20201025185136568.png)
 
-- `ALT` + `ENTER` ou appuyez sur l'ampoule ![image-20201025185243438](Exercice  Migration vers MVVM.assets/image-20201025185243438.png) et faites `Convert to data binding layout` :
+- `ALT` + `ENTER` ou appuyez sur l'ampoule ![image-20201025185243438](Exercice Migration vers MVVM.assets/image-20201025185243438.png) et faites `Convert to data binding layout` :
 
-  ![Convert to data binding layout](Exercice  Migration vers MVVM.assets/image-20201025185314834.png)
+  ![Convert to data binding layout](Exercice Migration vers MVVM.assets/image-20201025185314834.png)
 
   Vous obtenez :
 
@@ -273,11 +275,11 @@ La différence la plus flagrante est le fait que nous devons convertir les layou
       </androidx.constraintlayout.widget.ConstraintLayout>
   </layout>
   ```
-  
+
   Un layout compatible avec le DataBinding contient une balise `<data>` et une balise layout racine.
-  
+
   La classe généré se nomme en fonction du fichier xml, soit `ActivityMainBinding`.
-  
+
 - Allons au `MainActivity.kt`.
 
   Maintenant que nous avons activé le binding, l'objectif est d'éliminer tout apparition de `R.[ressources]` et `findViewById`.
@@ -294,7 +296,7 @@ La différence la plus flagrante est le fait que nous devons convertir les layou
     }
     ```
 
-    `ActivityMainBinding.inflate`  permet de lier l'XML à l'objet `ActivityMainBinding`. Le `layoutInflater` permet de lier l'XML à une View.
+    `ActivityMainBinding.inflate` permet de lier l'XML à l'objet `ActivityMainBinding`. Le `layoutInflater` permet de lier l'XML à une View.
 
   - Remplaçons donc `setContentView(R.layout.activity_main)` par la vue root, soit :
 
@@ -312,22 +314,22 @@ La différence la plus flagrante est le fait que nous devons convertir les layou
     ```kotlin
     class MainActivity : AppCompatActivity() {
         /...
-    
+
         private lateinit var rcvBooks: RecyclerView  // Supprimer
         private lateinit var binding: ActivityMainBinding
-    
+
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
             binding = ActivityMainBinding.inflate(layoutInflater)
             setContentView(binding.root)
-    
+
             // ...
-    
+
             this.rcvBooks = findViewById(R.id.a_main_rcv_books) // delete
-    
+
             // ...
         }
-    
+
         // ...
     }
     ```
@@ -365,7 +367,6 @@ class CreateBookActivity : AppCompatActivity() {
 ```
 
 </details>
-
 
 <details>
 <summary>Solution BookViewHolder</summary>
@@ -504,7 +505,7 @@ class BookAdapter(private val books: MutableList<Book>) :
 
 </details>
 
-Cool, on a réduit toute ces lignes et assuré le *type-safety*.
+Cool, on a réduit toute ces lignes et assuré le _type-safety_.
 
 **Et le "Data"Binding dans tout ça ?**
 
@@ -624,7 +625,7 @@ fun saveBook(view: View) {
 }
 ```
 
-De plus, de nombreuse opération sont liés au Lifecycle de la View. Rien que le fait d'éteindre l'écran cela demande de gérer [onSaveInstanceState()](https://developer.android.com/reference/android/app/Activity#onSaveInstanceState(android.os.Bundle)).
+De plus, de nombreuse opération sont liés au Lifecycle de la View. Rien que le fait d'éteindre l'écran cela demande de gérer [onSaveInstanceState()](<https://developer.android.com/reference/android/app/Activity#onSaveInstanceState(android.os.Bundle)>).
 
 De même, on aimerait éviter que la View modifie directement le Model en passant par le Controller.
 
@@ -643,9 +644,9 @@ Sur Android, l'App Architecture se base sur :
 - La séparation des préoccupations/responsabilités (**Séparations of concerns**)
 - **L'UI se base sur le Model.** Le model est **indépendante** à l'application, c'est-à-dire, que même si l'application fonctionne mal, cela n'affecte pas les données. Exemple 1 : Tuer une application ne fait pas perdre de données utilisateurs. Exemple 2 : L'application fonctionne même s'il n'y a pas de connexion à Internet.
 
-Google suggère d'utiliser l'architecture suivante : 
+Google suggère d'utiliser l'architecture suivante :
 
-![img](Exercice  Migration vers MVVM.assets/final-architecture.png)
+![img](Exercice Migration vers MVVM.assets/final-architecture.png)
 
 L'objectif à la fin de ce tutoriel sera d'arriver à mettre en place les `ViewModel` et des `ViewModelFacotry`.
 
@@ -654,7 +655,7 @@ Rappelons quelque définition avant de commencer :
 - Un **UI Controller** est une classe basée sur l'UI telle que `Activity ` ou `Fragment`. Un **UI Controller** ne doit contenir que la logique qui gère les interactions entre l'interface utilisateur et le système d'exploitation, comme l'affichage des vues et la saisie des données de l'utilisateur. Ne placez pas de logique décisionnelle, telle que la logique qui détermine le texte à afficher, dans le contrôleur d'interface utilisateur.
 - Un [**`ViewModel`**](https://developer.android.com/reference/android/arch/lifecycle/ViewModel) contient des données à afficher dans un fragment ou une activité associée au `ViewModel`. Un `ViewModel` peut effectuer des calculs et des transformations simples sur les données afin de préparer les données à afficher par le UI Controller. Dans cette architecture, le ViewModel prend les décisions.
 
-![d115344705100cf1.png](Exercice  Migration vers MVVM.assets/d115344705100cf1.png)
+![d115344705100cf1.png](Exercice Migration vers MVVM.assets/d115344705100cf1.png)
 
 ### Préparation
 
@@ -665,7 +666,7 @@ Rappelons quelque définition avant de commencer :
   def lifecycle_version = '2.2.0'
   implementation "androidx.lifecycle:lifecycle-livedata-ktx:$lifecycle_version"
   implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:$lifecycle_version"
-  
+
   // Activity
   implementation "androidx.activity:activity-ktx:1.1.0"
   // Fragment
@@ -681,7 +682,7 @@ Rappelons quelque définition avant de commencer :
   ```groovy
   android {
       // ...
-  
+
       buildTypes {
           // ...
       }
@@ -723,7 +724,7 @@ Faisons le binding côté `MainActivity` :
 
   Désormais, le `ViewModel` est instancié et suit le lifecycle de l'`Activity` :
 
-  ![Illustrates the lifecycle of a ViewModel as an activity changes state.](Exercice  Migration vers MVVM.assets/viewmodel-lifecycle.png)
+  ![Illustrates the lifecycle of a ViewModel as an activity changes state.](Exercice Migration vers MVVM.assets/viewmodel-lifecycle.png)
 
 - Mettez le `ViewModel` dans l'XML :
 
@@ -806,7 +807,7 @@ override fun onCreate(savedInstanceState: Bundle?) {
 }
 ```
 
-Maintenant, ajoutons des `LiveData` au `ViewModel`. 
+Maintenant, ajoutons des `LiveData` au `ViewModel`.
 
 **Nous allons ajouter un `LiveData` qui observe l'action `goToCreation`**
 
@@ -1062,11 +1063,11 @@ Je pense que vous avez compris, mais je vais vous le rappeler :
   private val _doStuff = MutableLiveData<Unit?>(null)
   val doStuff: LiveData<Unit?>
   	get() = _doStuff
-  
+
   fun doStuff() {
       _doStuff.value = Unit
   }
-  
+
   fun doStuffDone() {
       _doStuff.value = null
   }
@@ -1204,7 +1205,7 @@ Cela modifie bien des choses ! Et par conséquent, des effets secondaires sont p
 - `MainActivity` ne fonctionne plus.
 - `RecyclerView` ne reçoit pas de donnée.
 
-Cause : 
+Cause :
 
 - Au chapitre précédent, nous n'avons pas stocké la liste de `Book` dans une `LiveData`
 
@@ -1212,11 +1213,11 @@ Cause :
 
 Dans le `MainViewModel`, supprimez `fun getAllBooks() = bookshelf.getAllBooks()` et remplacez par :
 
-````kotlin
+```kotlin
 private val _books = MutableLiveData<List<Book>>(emptyList())
 val books: LiveData<List<Book>>
 	get() = _books
-````
+```
 
 Modifiez `addBook` pour actualiser le `LiveData` :
 
@@ -1276,9 +1277,9 @@ viewModel.books.observe(this, {
 
 Ce qui est totalement valable. Cependant, je pense qu'une des critiques que vous avez des `ViewModel`, c'est que cela pollue le `onCreate` de l'`Activity` à cause des `Observer`.
 
-*Je veux dire "Pourquoi passer de MVC au MVVM si ça rajoute du bordel ?"*
+_Je veux dire "Pourquoi passer de MVC au MVVM si ça rajoute du bordel ?"_
 
-Lorsqu'il s'agit de "set" des objects comme [`setText()`](https://developer.android.com/reference/android/widget/TextView#setText(char[], int, int)) ou [`setOnClickListener()`](https://developer.android.com/reference/android/view/View#setOnClickListener(android.view.View.OnClickListener)), les `BindingAdapter` font exactement se comportement.
+Lorsqu'il s'agit de "set" des objects comme [`setText()`](https://developer.android.com/reference/android/widget/TextView#setText(char[], int, int)) ou [`setOnClickListener()`](<https://developer.android.com/reference/android/view/View#setOnClickListener(android.view.View.OnClickListener)>), les `BindingAdapter` font exactement se comportement.
 
 - Dans un fichier `BindingAdapters.kt`, mettez :
 
