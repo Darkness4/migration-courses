@@ -193,7 +193,6 @@ class MainActivity : AppCompatActivity() {
     // ...
 
     private val rcvBooks by lazy<RecyclerView> { findViewById(R.id.a_main_rcv_books) }
-    private val bookAdapter: BookAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -232,7 +231,7 @@ La différence la plus flagrante est le fait que nous devons convertir les layou
 
   ![androidx.constraintlayout.widget.ConstraintLayout](assets/image-20201025185136568.png)
 
-- `ALT` + `ENTER` ou appuyez sur l'ampoule ![image-20201025185243438].assets/image-20201025185243438.png) et faites `Convert to data binding layout` :
+- `ALT` + `ENTER` ou appuyez sur l'ampoule ![image-20201025185243438](assets/image-20201025185243438.png) et faites `Convert to data binding layout` :
 
   ![Convert to data binding layout](assets/image-20201025185314834.png)
 
@@ -313,7 +312,7 @@ La différence la plus flagrante est le fait que nous devons convertir les layou
 
     ```kotlin
     class MainActivity : AppCompatActivity() {
-        /...
+        // ...
 
         private lateinit var rcvBooks: RecyclerView  // Supprimer
         private lateinit var binding: ActivityMainBinding
@@ -325,7 +324,7 @@ La différence la plus flagrante est le fait que nous devons convertir les layou
 
             // ...
 
-            this.rcvBooks = findViewById(R.id.a_main_rcv_books) // delete
+            this.rcvBooks = findViewById(R.id.a_main_rcv_books) // Supprimer
 
             // ...
         }
@@ -724,7 +723,7 @@ Faisons le binding côté `MainActivity` :
 
   Désormais, le `ViewModel` est instancié et suit le lifecycle de l'`Activity` :
 
-  ![Illustrates the lifecycle of a ViewModel as an activity changes state.].assets/viewmodel-lifecycle.png)
+  ![Illustrates the lifecycle of a ViewModel as an activity changes state.](assets/viewmodel-lifecycle.png)
 
 - Mettez le `ViewModel` dans l'XML :
 
