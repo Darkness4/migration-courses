@@ -314,9 +314,9 @@ La différence la plus flagrante est le fait que **nous devons convertir les lay
   - Nous pouvons maintenant supprimer ces lignes étant donnée que c'est stocké dans le `binding` :
   
     ```kotlin
-  class MainActivity : AppCompatActivity() {
+    class MainActivity : AppCompatActivity() {
         // ...
-  
+
         private lateinit var rcvBooks: RecyclerView  // Supprimer
         private lateinit var binding: ActivityMainBinding
   
@@ -333,12 +333,13 @@ La différence la plus flagrante est le fait que **nous devons convertir les lay
         }
   
         // ...
-  }
+    }
     ```
   
   - Supprimez toute les référence de `rcvBooks` par `binding.aMainRcvBooks`.
   
     ```kotlin
+    // MainActivity.kt : Conclusion
     class MainActivity : AppCompatActivity() {
         // ...
     
@@ -381,8 +382,8 @@ La différence la plus flagrante est le fait que **nous devons convertir les lay
         }
     }
     ```
-    
   
+    
 
 **Faites de même pour toutes les views (BookViewHolder et CreateBookActivity)**
 
