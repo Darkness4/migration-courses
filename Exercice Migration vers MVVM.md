@@ -339,7 +339,6 @@ La différence la plus flagrante est le fait que **nous devons convertir les lay
   - Supprimez toute les référence de `rcvBooks` par `binding.aMainRcvBooks`.
   
     ```kotlin
-    // MainActivity.kt : Conclusion
     class MainActivity : AppCompatActivity() {
         // ...
     
@@ -382,8 +381,8 @@ La différence la plus flagrante est le fait que **nous devons convertir les lay
         }
     }
     ```
-  
     
+  
 
 **Faites de même pour toutes les views (BookViewHolder et CreateBookActivity)**
 
