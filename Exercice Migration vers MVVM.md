@@ -218,7 +218,7 @@ D'autres solutions ont existé pour résoudre ce problème comme :
 - Kotlin Synthetic
 - Android [ViewBinding](https://developer.android.com/topic/libraries/view-binding)
 
-Cependant, Butter Knife et Kotlin Synthetic ont été déprécié pour supporter soit `findViewById` ou Android [ViewBinding](https://developer.android.com/topic/libraries/view-binding).
+Cependant, Butter Knife et Kotlin Synthetic ont été déprécié pour supporter soit `findViewById` ou soit Android [ViewBinding](https://developer.android.com/topic/libraries/view-binding).
 
 Nous allons donc utiliser **Android [DataBinding](https://developer.android.com/topic/libraries/data-binding)** qui inclus ViewBinding (xml vers vue) mais permet également de transférer des données dans les XML.
 
@@ -317,19 +317,19 @@ La différence la plus flagrante est le fait que **nous devons convertir les lay
   class MainActivity : AppCompatActivity() {
         // ...
   
-      private lateinit var rcvBooks: RecyclerView  // Supprimer
+        private lateinit var rcvBooks: RecyclerView  // Supprimer
         private lateinit var binding: ActivityMainBinding
   
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
-          binding = ActivityMainBinding.inflate(layoutInflater)
+            binding = ActivityMainBinding.inflate(layoutInflater)
             setContentView(binding.root)
 
             // ...
 
             this.rcvBooks = findViewById(R.id.a_main_rcv_books) // Supprimer
   
-          // ...
+            // ...
         }
   
         // ...
