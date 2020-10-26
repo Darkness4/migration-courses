@@ -1387,21 +1387,29 @@ Donc, ici, on peut faire :
 
 **Faites-le dans `activity_main.xml`**.
 
+**Testez, appréciez l'animation, passez à la suite.**
+
 ### Conclusion
 
-**Testez, appréciez l'animation, passez à la suite.**
+Nous avons hérité de `ListAdapter` au lieu de `RecyclerView` pour pouvoir faire passer de `List<Book>`.
+
+Nous avons utilisé un `DiffCallback`, qui est nécessaire au `ListAdapter`, qui a permis d'actualiser automatiquement le `RecyclerView`.
+
+Nous avons fini par utiliser les `@BindingAdapter` pour créer des balises capables d'observer des `ListData`.
 
 ## Conclusion finale
 
+Good job ! Vous êtes actuellement prêt à faire du MMVM.
+
 Ce n'est pas terminé. Il reste à voir :
 
-- Fragment + Navigation Component (**Super important**)
+- Fragment + Navigation Component (**Super important**) : Nouveau composant architectural pour la navigation
 - Navigation Safe Args
-- Room + Kotlin Coroutines (**IMPORTANCE MAXIMALE**)
-- Retrofit + Kotlin Coroutines (**Pareil**)
-- Repository Pattern
-- Injection de Dépendances
-- Clean Architecture
+- Room + Kotlin Coroutines (**IMPORTANCE MAXIMALE**) : Asynchronisme et flux de données asynchrone pour une base de données locales
+- Retrofit + Kotlin Coroutines (**Pareil**) : Asynchronisme et flux de données asynchrone pour une base de données distantes
+- Repository Pattern : Utilisation de Room et Retrofit pour faire un cache.
+- Injection de Dépendances : Découplement et inversion de contrôle
+- Clean Architecture : **La totale.**
 - Result/State Management ? (ça se résume à convertir des classes Exception en classe Result.Failure, et les résultats en classe Result.Success.)
 
 ## Bonus : ClickListener sur un RecyclerView
