@@ -931,7 +931,7 @@ Bougeons un peu les choses :
 
 ![image-20201028195349030](assets/image-20201028195349030.png)
 
-## Navigation Component Animation
+### Navigation Component Animation
 
 Cliquez sur l'action et le menu de droite devrait apparaitre :
 
