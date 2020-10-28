@@ -569,7 +569,6 @@ En théorie, on opterait pour la première solution avec Room. Cependant, nous u
 - Ajoutez le `activityViewModel` au niveau de la classe, injectez avec `ownerProducer = { requireActivity() } `et effectuer l'action dans `saveBook` :
 
   ```kotlin
-  @AndroidEntryPoint
   class CreateBookFragment : Fragment() {
       private lateinit var binding: FragmentCreateBookBinding
       private val viewModel by viewModels<CreateBookViewModel>()
