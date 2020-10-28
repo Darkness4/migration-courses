@@ -914,6 +914,15 @@ Bravo !
 
 Vous avez mis en place des Fragments avec un routage basé sur Navigation Component.
 
+En plus, vous avez pu mettre un injecteur de dépendances.
+
+Cependant, ce n'est pas encore terminé. Il reste à voir :
+
+- Room avec Kotlin Coroutines
+- Retrofit avec Kotlin Coroutines
+- Repository Pattern
+- (Coil/Glide pour gérer les images)
+
 ## Bonus
 
 ### Folder structure
