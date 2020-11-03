@@ -655,7 +655,7 @@ class BookRepositoryImpl @Inject constructor(private val bookDao: BookDao) : Boo
 
 Actuellement, le principe **DRY **(don't repeat yourself) peut sembler agir contre l'architecture. Cependant, **BookModel** et **Book** sont totalement différents (l'un est serializable Java, l'autre est serializable API/Database). Une solution pour résoudre cette complexité serait que `BookModel` hérite de `Book`. Cependant, ce n'est pas possible, car `Book` est une data classe.
 
-### Supprimez Bookshelf et remplacez par BookRepository
+### Supprimez Bookshelf et remplacez par BookRepository. (mettez à jour le MainViewModel)
 
 `Bookshelf` est remplacé par `BookRepository`.
 
@@ -697,28 +697,6 @@ class BookRepositoryImpl @Inject constructor(private val bookDao: BookDao) : Boo
 
     override suspend fun clearAllBooks() {
         bookDao.clear()
-    }
-}
-```
-
-### Mettez la méthode `clear` dans le `MainViewModel`
-
-```kotlin
-fun clear() {
-    bookRepository.clearAllBooks()
-}
-```
-
-Par conséquent dans le `MainActivity` :
-
-```kotlin
-override fun onOptionsItemSelected(item: MenuItem): Boolean {
-    return when (item.itemId) {
-        R.id.clear -> {
-            viewModel.clear()
-            true
-        }
-        else -> super.onOptionsItemSelected(item)
     }
 }
 ```
