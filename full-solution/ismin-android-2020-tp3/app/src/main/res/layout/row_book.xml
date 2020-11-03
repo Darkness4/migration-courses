@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <data>
+
+        <variable
+            name="book"
+            type="com.ismin.android.domain.entities.Book" />
+    </data>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <TextView
+            android:id="@+id/r_book_txv_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-thin"
+            android:text="@{book.title}"
+            android:textAppearance="@style/TextAppearance.AppCompat.Medium"
+            android:textSize="24sp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="Candide" />
+
+        <TextView
+            android:id="@+id/r_book_txv_author"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:fontFamily="sans-serif-medium"
+            android:text="@{book.author}"
+            android:textAppearance="@style/TextAppearance.AppCompat.Small"
+            app:layout_constraintBottom_toBottomOf="@+id/r_book_imv_logo"
+            app:layout_constraintStart_toEndOf="@+id/r_book_imv_logo"
+            tools:text="Voltaire" />
+
+        <TextView
+            android:id="@+id/r_book_txv_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="4dp"
+            android:layout_marginTop="4dp"
+            android:fontFamily="sans-serif-medium"
+            app:date="@{book.date}"
+            app:layout_constraintBottom_toBottomOf="@+id/r_book_imv_logo"
+            app:layout_constraintStart_toEndOf="@+id/r_book_txv_author"
+            app:layout_constraintTop_toBottomOf="@+id/r_book_txv_title"
+            tools:text="10/12/1899" />
+
+        <ImageView
+            android:id="@+id/r_book_imv_logo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="Logo"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@+id/r_book_txv_title"
+            app:srcCompat="@drawable/ic_baseline_menu_book_24" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>
