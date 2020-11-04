@@ -168,7 +168,11 @@ Future<void> main() async {
 }
 ```
 
-En lançant le programme de cette manière, **le programme va actuellement s'arrêter abruptement.** En effet, nous avons oubliés de `await`. Par conséquent, `promise` et `promise2` tournent dans des threads en arrière-plan, mais la fonction `main` sera déjà terminé vu qu'elle tourne le thread principal. Si on était en bas niveau, il s'agit d'un cas de `fork/join`, où `async` = `fork` et `await` = `join`. Donc, lancer une fonction `async` va `fork` vers un nouveau thread et `await` va `join` ce thread au résultat.
+En lançant le programme de cette manière, **le programme va actuellement s'arrêter abruptement.** En effet, nous avons oubliés de `await`. Par conséquent, `future` et `future2` tournent dans des threads en arrière-plan, mais la fonction `main` sera déjà terminé vu qu'elle tourne le thread principal. Si on était en bas niveau, il s'agit d'un cas de `fork/join`, où `async` = `fork` et `await` = `join`. Donc, lancer une fonction `async` va `fork` vers un nouveau thread et `await` va `join` ce thread au résultat. Le problème apparait lorsqu'on oublie exactement de `join`.
+
+**Le comportement devient inattendu. (parce que l'on a fire-and-forget).**
+
+Une solution pour récupérer le résultat sans l'oublier est de `await` immédiatement.
 
 ```dart
 // Solution pour régler ce problème
@@ -200,6 +204,8 @@ fun main() = runBlocking<Unit> {
 }
 ```
 
+Vous remarquez que le code n'est actuellement pas **asynchrone.** (On lance dans un thread puis on attend directement, au lieu de lancer dans un thread puis faire autre chose à coté.)
+
 C'est pour cela que Kotlin est dit `sequential` par défaut, comparé à JS qui est `async` by default. C'est-à-dire que si on déclare :
 
 ```kotlin
@@ -225,7 +231,7 @@ runBlocking<Unit> {
 
 Les fonctions exécutent à la suite (et non en parallèle) !
 
-Pour les lancer en parallèle, on peut utiliser **`launch`** (fire-and-forget) ou **`async`** (async-and-await).
+Pour les lancer en parallèle, on peut utiliser **`launch`** (pour fire-and-forget) ou **`async`** (pour async-and-await).
 
 ```kotlin
 fun main() = runBlocking<Unit> {
@@ -271,11 +277,11 @@ Future<void> main() async {
 }
 ```
 
-Cependant, remarquez que Kotlin possède une spécificité qui est le **"Coroutine scope".** C'est exactement ce que cela signifie : il s'agit d'un scope définissant quel morceau de bloc de code peut être lancé avec `suspend`. Avec Dart, JS et autre langage basé sur async-await, le scope est définit avec **async** est au niveau de la fonction obligatoirement.
+Cependant, sachez que Kotlin possède une spécificité qui est le **"Coroutine scope".** C'est exactement ce que cela signifie : il s'agit d'un scope définissant quel morceau de bloc de code peut être lancé avec `suspend`. Avec Dart, JS et autre langage basé sur async-await, le scope est définit avec **async **et est obligatoirement au niveau de la fonction. (`Future<int> function() async` ou `async function(): Promise<int>`)
 
 Avec Kotlin, on peut se permettre d'être plus précis. En définissant une coroutine scope, on est capable de lier ce scope avec un lifecycle.
 
-Par exemple, `runBlocking` créer un scope selon les accolades et attends jusqu'à que les "jobs"/"tâches" soient terminés.
+Par exemple, `runBlocking` créer un scope selon les accolades et attends jusqu'à que les "jobs"/"tâches" soient terminés avant de mourir. Cela permet de lancer des tâches asynchrones dans un `main`.
 
 Par conséquent, sachant que Core KTX implémentent des scopes de coroutines dans les `ViewModel`, appelés `viewModelScope`. On pourra lancer en parallèle en faisant `viewModelScope.launch{ /* do */ }`. Les `viewModelScope` sont liés au lifecycle des `ViewModel` et donc, des Fragments/Activity.
 
@@ -338,6 +344,8 @@ class MainViewModel(private val bookshelf: Bookshelf) : ViewModel() {
 }
 ```
 
+Simple, non ?
+
 ## Pause : Reprenons les Threads
 
 J'ai parlé des coroutines peut-être un peu rapidement.
@@ -348,7 +356,7 @@ Actuellement, Android tourne sous 3 catégories de threads :
 - `Dispatchers.IO` ou IO Thread (single-threaded) pour l'écriture et lecture (Réseau, Cache, littéralement input/output)
 - `Dispatchers.Default` ou Default Threads (dual-threaded ou égale au nombre de cores) pour le travail intense (JSON parsing, algorithmes, DiffUtils)
 
-Ces 3 catégories de threads sont très communs et **l'objectif est de ne jamais bloquer les threads UI**.
+Ces 3 catégories de threads sont très communs dans le monde du software et **l'objectif est de ne jamais bloquer les threads UI**.
 
 ![Dangerously Austin Powers - blocking the ui thread I too like to live life dangerously](assets/44700357.jpg)
 
@@ -361,11 +369,11 @@ On peut également utiliser `launch(Dispatchers.XX)` et `async(Dispatchers.XX)` 
 Exemple :
 
 ```kotlin
-viewModelScope.launch(Dispatchers.Main) {  // Pour les LiveData
-    withContext(Dispatchers.IO) {  // Pour télécharger
+viewModelScope.launch(Dispatchers.Main) {  // "Dispatchers.Main" pour les LiveData
+    withContext(Dispatchers.IO) {  // "Dispatchers.IO" pour télécharger
         download()
     }
-    myLiveData.value = withContext(Dispatchers.IO) { // Pour télécharger
+    myLiveData.value = withContext(Dispatchers.IO) { // "Dispatchers.IO" pour télécharger
         getAllStuff()  // return@withContext
     }
 }
@@ -403,7 +411,7 @@ class MainViewModel(private val bookshelf: Bookshelf) : ViewModel() {
     }
     
     fun clearAllBooks() {
-        viewModelScope.launch(Dispatchers.Main) {
+        viewModelScope.launch(Dispatchers.Main) {  // ici
             bookshelf.clearAllBooks()
             _books.value = bookshelf.getAllBooks()
         }
@@ -420,7 +428,7 @@ Cependant, allons faire immédiatement du networking et de l'architecture.
 
 ## Tâche : Architecture Android mis en place réel
 
-Faites les dossiers `data` et `domain`.
+Faites les dossiers `data` et `domain` dans `com.ismin.android`
 
 `domain` contient :
 
@@ -439,7 +447,7 @@ Faites les dossiers `data` et `domain`.
 
 Comme on doit être capable de convertir entre models et entities, on va faire des interfaces utilitaires.
 
-**Dans le package `com.ismin.android.core.mappers`** (créez ces dossier), mettez ces interfaces :
+**Dans le package `com.ismin.android.core.mappers`** (créez ces dossier `core` et `mappers`), mettez ces interfaces :
 
 ```kotlin
 package com.ismin.android.core.mappers
@@ -458,8 +466,6 @@ interface ModelMappable<out R> {
 ```
 
 Note : `<out R>` définit la variance du générique `R`. Googlez pour connaitre la signification. Mais en gros, appliquez `out` quand `R` est retourné (covariance), `in` quand `R` est un paramètre (contravariance), rien quand `R` est retourné et est en paramètre (invariance).
-
-
 
 **Dernière chose** : Refactorisez `ServiceModule` (dans `di`) en `DomainModule` et supprimez le provider de `Bookshelf` (On ne l'utilisera plus).
 
@@ -483,7 +489,7 @@ Room se chargera d'implémenter cette base de donnée.
 
 ### **Allons faire le provider de Room.**
 
-Dans `com.ismin.android.di`, faites un `object` DataModule qui occupe le lifecycle d'un singleton (`ApplicationComponent`) et fabriquez la base de donnée avec `Room.databaseBuilder` :
+Dans `com.ismin.android.di`, faites un `object` `DataModule ` qui a un lifecycle singleton (`ApplicationComponent`) et fabriquez la base de donnée avec `Room.databaseBuilder` :
 
 ```kotlin
 @Module
@@ -501,7 +507,7 @@ object DataModule {
 }
 ```
 
-Le nom du fichier importe peu.
+Le nom du fichier `app.db` importe peu.
 
 ### **Faisons maintenant le model du book.**
 
@@ -526,6 +532,17 @@ data class Book(val title: String, val author: String, val date: String) :
     Serializable,
     ModelMappable<BookModel> {
     override fun asModel() = BookModel(title, author, date)
+}
+```
+
+D'ailleurs, vous pouvez également ajouter que `CreateBookViewModel` implémenter `EntityMappable<Book>` si vous le souhaitez.
+
+```kotlin
+class CreateBookViewModel : ViewModel(),
+    EntityMappable<Book> {
+    override fun asEntity() = Book(title.value!!, author.value!!, date.value!!)
+
+    // Remplacez toBook par asEntity
 }
 ```
 
@@ -573,9 +590,9 @@ La `watch` récupère les livres du cache et observe tout changement. Il s'agit 
 
 **Notes à propos du type de retour** :
 
-- Si non-nullable (`T`), alors fait crasher avec une `NullPointerException` si pas trouvé
-- Si nullable `T?`,  alors retourne `null` si pas trouvé
-- `List<T>`, alors vide si pas trouvé
+- Si on retourne un non-nullable (`T`), alors fait crasher avec une `NullPointerException` si l'élément n'est pas trouvé.
+- Si on retourne un nullable `T?`,  alors retourne `null` si l'élément n'est pas trouvé.
+- Si on retourne une `List<T>`, alors la liste est vide si aucun élément trouvé.
 
 ### **Déclarons les DAO dans la `Database` et dans le `DataModule`.**
 
@@ -665,6 +682,8 @@ class EntityManager @Inject constructor(private val aRepositoryLazy: Lazy<ARepos
 
 (Notez que le `Lazy` est une propriété de Hilt/Dagger qui permet d'instancier l'objet uniquement à l'appel de la fonction.)
 
+**Ultérieurement, dans vos futures projets, il sera peut-être plus intéressant d'utiliser `Lazy<T>` au lieu de passer la dépendance `T` directement.**
+
 ### Faites un BookRepository
 
 **Recopions les contrats depuis le `Bookshelf` :**
@@ -679,7 +698,6 @@ interface BookRepository {
     suspend fun getBooksOf(author: String): List<Book>
     suspend fun getTotalNumberOfBooks(): Int
     suspend fun clearAllBooks()
-    fun watchAllBooks(): Flow<List<Book>>
 }
 ```
 
@@ -710,10 +728,6 @@ class BookRepositoryImpl: BookRepository {
     }
 
     override suspend fun clearAllBooks() {
-        TODO("Not yet implemented")
-    }
-    
-    override fun watchAllBooks(): Flow<List<Book>> {
         TODO("Not yet implemented")
     }
 }
@@ -774,21 +788,25 @@ class BookRepositoryImpl @Inject constructor(private val bookDao: BookDao) : Boo
 
 
 
-**WAIT !** On utilise `.map` qui O(n) (on parcoure toute la liste et on convertit), n'est-ce pas une perte de performance ?
+**WAIT ! On utilise `.map` qui O(n) (on parcoure toute la liste et on convertit), n'est-ce pas une perte de performance pour passer de la couche Data (Model) à la couche Domain (Entity) ?**
 
-​	**Oui. Clairement.** Cependant, cela permet de valider les données et d'être découplé en terme de dépendances. La couche Domain ne doit pas contenir de données spécifique à la couche Data (exemple : Pagination, Date de sauvegarde ...).
+**Oui. Clairement.** Cependant, cela permet de valider les données et d'être découplé en terme de dépendances. La couche Domain ne doit pas contenir de données spécifique à la couche Data (exemple : Pagination, Date de sauvegarde ...).
 
-Actuellement, le principe **DRY **(don't repeat yourself) peut sembler agir contre l'architecture. Cependant, **BookModel** et **Book** sont totalement différents (l'un est serializable Java, l'autre est serializable API/Database). Une solution pour résoudre cette complexité serait que `BookModel` hérite de `Book`. Cependant, ce n'est pas possible, car `Book` est une data classe.
+Actuellement, le principe **DRY **(don't repeat yourself) peut sembler agir contre l'architecture. Cependant, **BookModel** et **Book** sont totalement différents (l'un est serializable en binaire Java, l'autre est serializable pour API/Database en format JSON ou SQL). Ce n'est donc pas une violation du principe DRY.
 
 ### Supprimez Bookshelf et remplacez par BookRepository. (mettez à jour le MainViewModel)
 
 `Bookshelf` est remplacé par `BookRepository`.
 
+Supprimez `Bookshelf`.
+
 ### Réglez le contexte de coroutine dans le BookRepositoryImpl
 
-**IMPORTANT : Notez que Room et Retrofit sont UI Thread safe. Donc ne changez pas le contexte !**
+**IMPORTANT : Notez que Room et Retrofit sont UI Thread safe.**
 
-Comme la responsabilité d'un repository n'est ni **IO**, ni **UI**, mais **métier**, on applique le contexte `Dispatchers.Default` lors des mappages.
+Comme la responsabilité d'un repository n'est ni **IO**, ni **UI**, mais **métier**, on applique le contexte `Dispatchers.Default` **lors des mappages (`asEntity ` ou `asModel`)**.
+
+S'il existe d'autre logique métier (filtrage, algorithmie, ...), il faudra appliquer le contexte `Dispatchers.Default`.
 
 ```kotlin
 class BookRepositoryImpl @Inject constructor(private val bookDao: BookDao) : BookRepository {
@@ -838,27 +856,31 @@ En effet, l'objectif d'une telle architecture basé sur le repository est de ne 
 
 ![img](assets/final-architecture.png)
 
-L'application **doit lire en continue** le cache afin d'utiliser les anciennes données et réactualiser si connecté à internet.
+L'application **doit lire en continu le cache** afin d'utiliser les anciennes données et **réactualiser si connecté à internet**.
+
+**Il s'agit typiquement de l'Observer Pattern (observe updates and update the state).**
 
 ### `Flow`
 
 Alors qu'une fonction `suspend` retourne 1 valeur de manière asynchrone, `Flow` retourne plusieurs valeurs asynchrones.
 
-Ce `Flow` peut également être observé, mais on va préférer à le convertir en `LiveData`.
+Ce `Flow` peut également être observé, mais on va préférer à le convertir en `LiveData` avec `asLiveData`.
 
 ### N'utilisez plus `getAllBooks` mais `watchAllBooks`
 
-Dans `BookRepository` et son implémentation, créez une méthode `watchAllBooks(): Flow<List<Book>>` et utilisez `bookDao.watch()`.
+Dans `BookRepository` et son implémentation, **créez une méthode `watchAllBooks(): Flow<List<Book>>` et utilisez `bookDao.watch()`**.
 
 **La méthode ne doit pas être `suspend`.** Utilisez `flowOn` pour changer de contexte :
 
 ```kotlin
 override fun watchAllBooks(): Flow<List<Book>> {
     return bookDao.watch()  // Dispatchers.IO selon Room
-    .map { it.map { model -> model.asEntity() } }  // Dispatchers.Default
-    .flowOn(Dispatchers.Default)
+        .map { it.map { model -> model.asEntity() } }  // Dispatchers.Default
+        .flowOn(Dispatchers.Default)
 }
 ```
+
+(Cela peut sembler bizarre d'enchainer 2 `.map`, mais c'est bien O(n) en terme de complexité. En effet, le premier `.map` transforme le flux. C'est le second qui agit sur la liste. Si cela vous a semblé bizarre, c'est parce que, généralement, on `flatten` ou `flatMap` les collections en 2D (`Flow<Flow<Item>>` devient `Flow<Item>`)).
 
 Allez dans le `MainViewModel`, supprimez `_books` et changez `books` par :
 
@@ -869,9 +891,11 @@ val books = bookRepository.watchAllBooks()
 
 On utilise `Dispatchers.Default`, car, `asLiveData ` peut être intensif.
 
-Remplacez `_books.value = bookRepository.getAllBooks()` par `bookRepository.getAllBooks()`. **En effet,** lors de exécution de `bookRepository.getAllBooks()`, le repository se chargera de télécharger les livres et de les placer en cache.
+Remplacez `_books.value = bookRepository.getAllBooks()` par `bookRepository.getAllBooks()`. 
 
-**Supprimez également le `bookRepository.getAllBooks()` dans `addBook` et `clearAllBooks`**, car la valeur se réactualise automatiquement maintenant.
+**En effet,** lors de exécution de `bookRepository.getAllBooks()`, le repository se chargera de télécharger les livres et de les placer en cache.
+
+**Supprimez également le `bookRepository.getAllBooks()` dans `addBook` et `clearAllBooks`**, car la valeur se réactualise automatiquement grâce au `LiveData`.
 
 ### Conclusion
 
@@ -879,9 +903,15 @@ Il ne reste plus que l'HTTP... courage !
 
 ## Tâche : Retrofit
 
+### Présentation rapide
+
+Retrofit est une couche d'abstraction pour le client HTTP, `okhttp`. En effet, l'implémentation des services Retrofit se base sur la génération de code, ce qui permet de cacher l'implémentation aux yeux des développeurs.
+
+Il est particulièrement adapté au API REST, gRPC, ... et bien d'autre !
+
 ### Permission
 
-Dans le `AndroidManifest.xml`, ajoutez :
+Dans le `AndroidManifest.xml`, ajoutez après la balise `<manifest>` :
 
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
@@ -1001,30 +1031,6 @@ data class BookModel(
 1. Installez Joda DateTime dans le `build.gradle` du module `app`.
 
 2. ```kotlin
-   @Entity(tableName = "Book")
-   @Serializable
-   data class BookModel(
-       @PrimaryKey
-       val title: String,
-       val author: String,
-       @Serializable(with = DateTimeSerializer::class)  // Ici
-       val date: DateTime  // Ici
-   ) : EntityMappable<Book> {
-       override fun asEntity() = Book(title, author, date)
-   }
-   ```
-
-3. ```kotlin
-   data class Book(
-       val title: String,
-       val author: String,
-       val date: DateTime  // Ici
-   ) : Serializable, ModelMappable<BookModel> {
-       override fun asModel() = BookModel(title = title, author = author, date = date)
-   }
-   ```
-
-4. ```kotlin
    package com.ismin.android.core.serializers
    
    object DateTimeSerializer : KSerializer<DateTime> {  // Pour Retrofit
@@ -1037,8 +1043,8 @@ data class BookModel(
        override fun deserialize(decoder: Decoder): DateTime = DateTime.parse(decoder.decodeString())
    }
    ```
-
-5. ```kotlin
+   
+3. ```kotlin
    package com.ismin.android.data.database
    
    class Converters {  // Pour Room
@@ -1055,6 +1061,30 @@ data class BookModel(
    
    ```
 
+4. ```kotlin
+   @Entity(tableName = "Book")
+   @Serializable
+   data class BookModel(
+       @PrimaryKey
+       val title: String,
+       val author: String,
+       @Serializable(with = DateTimeSerializer::class)  // Ici
+       val date: DateTime  // Ici
+   ) : EntityMappable<Book> {
+       override fun asEntity() = Book(title, author, date)
+   }
+   ```
+
+5. ```kotlin
+   data class Book(
+       val title: String,
+       val author: String,
+       val date: DateTime  // Ici
+   ) : Serializable, ModelMappable<BookModel> {
+       override fun asModel() = BookModel(title = title, author = author, date = date)
+   }
+   ```
+
 6. ```kotlin
    @Database(
        entities = [BookModel::class],
@@ -1066,7 +1096,7 @@ data class BookModel(
    }
    ```
 
-7. Remplacez l'EditText `a_create_book_edt_date`dédié au dates du fragment_create_book.xml par :
+7. Dans fragment_create_book.xml, remplacez l'EditText `a_create_book_edt_date` dédié au dates par un TextView faisant un appel au ViewModel :
 
    ```xml
    <TextView
@@ -1188,7 +1218,7 @@ fun provideBookshelfDataSource(): BookshelfDataSource {
 
 Il faut bien distinguer quels sont les opérations qui sont locales et distants.
 
-Je rappelle : **nous travaillons en watch + refresh**.
+Je rappelle : **nous travaillons en Observer Pattern (observe + refresh)** et non request + response.
 
 Voilà **une** solution :
 
@@ -1264,7 +1294,7 @@ Vous remarquez que les erreurs d'exceptions bloquent l'application lorsqu'il n'a
 
 La solution est simple : **State Management**.
 
-## Tâche finale : Result
+## Tâche finale : Result (ou State)
 
 ### Mettez la classe utilitaire `Result`
 
@@ -1443,14 +1473,14 @@ class BookRepositoryImpl @Inject constructor(
 
 ### ViewModels : Mettez à jour les types
 
-Parfois, vous voudriez stocker le résultat de la connectivité.
+Parfois, vous voudriez stocker le résultat de la réponse HTTP (du moins, si ça a marché).
 
 Pour cela, on peut faire :
 
 ```kotlin
 private val _networkStatus = MutableLiveData<Result<Unit>>()
-    val networkStatus: LiveData<Result<Unit>>
-        get() = _networkStatus
+val networkStatus: LiveData<Result<Unit>>
+	get() = _networkStatus
 ```
 
 Et à chaque fois que vous faites une requête lié au wifi, vous changez la valeur de `networkStatus` :
@@ -1548,7 +1578,7 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             R.id.clear -> {
-                viewModel.clear()
+                viewModel.clearAllBooks()
                 true
             }
             else -> super.onOptionsItemSelected(item)
@@ -1578,13 +1608,17 @@ Comparez votre code avec la solution sur [Github](https://github.com/Darkness4/m
 
 ## Conclusion finale
 
-Bravo ! Vous avez totalement terminé les cours.
+Bravo ! Vous avez totalement terminé les cours (enfin presque).
 
 En terme de code, vous avez atteint le niveau maximale.
 
 Il ne reste plus qu'à découvrir l'écosystème autour d'Android. (Tensorflow lite, Google Maps, ...)
 
-## Bonus pour la perfection : Scroll to refresh
+**Et Coil-Kt ou Glide pour la gestion des images.**
+
+Il reste plusieurs bonus en dessous qui sera utile pour le projet.
+
+## Bonus pour la perfection : Swipe to refresh
 
 Dans `MainViewModel`, il temps de refactoriser (extraire) :
 
@@ -1628,7 +1662,7 @@ Cependant, complétez la méthode `refresh` et `manualRefresh`  :
 private fun refresh() {
     viewModelScope.launch(Dispatchers.Main) {
         _networkStatus.value = bookRepository.getAllBooks().map { Unit }
-        manualRefreshDone()
+        manualRefreshDone()  // Ici
     }
 }
 ```
@@ -1636,7 +1670,7 @@ private fun refresh() {
 ```kotlin
 fun manualRefresh() {
     _manualRefresh.value = true
-    refresh()
+    refresh()  // Ici
 }
 ```
 
@@ -1696,19 +1730,19 @@ row_book.xml :
             type="com.ismin.android.domain.entities.Book" />
     </data>
 
-    <androidx.constraintlayout.widget.ConstraintLayout>
+    <androidx.constraintlayout.widget.ConstraintLayout ... >
 
         <TextView
-            android:id="@+id/r_book_txv_title"/>
+            android:id="@+id/r_book_txv_title"... />
 
         <TextView
-            android:id="@+id/r_book_txv_author"/>
+            android:id="@+id/r_book_txv_author"... />
 
         <TextView
-            android:id="@+id/r_book_txv_date"/>
+            android:id="@+id/r_book_txv_date" ... />
 
         <ImageView
-            android:id="@+id/r_book_imv_logo" />
+            android:id="@+id/r_book_imv_logo" ... />
 
         <Button
             android:id="@+id/delete_button"
@@ -1741,12 +1775,12 @@ class BookAdapter(private val onClickListener: OnClickListener) :
     ) : RecyclerView.ViewHolder(binding.root) {
         fun bind(item: Book) {
             binding.book = item
-            binding.deleteButton.setOnClickListener { onClickListener.onClick(item) }
+            binding.deleteButton.setOnClickListener { onClickListener.onClick(item) }  // Ici
             binding.executePendingBindings()
         }
     }
 
-    fun interface OnClickListener {
+    fun interface OnClickListener {  // Ici
         fun onClick(book: Book)
     }
 
@@ -1754,7 +1788,7 @@ class BookAdapter(private val onClickListener: OnClickListener) :
         ViewHolder(
             RowBookBinding.inflate(LayoutInflater.from(parent.context), parent, false),
             onClickListener
-        )
+        )  // Ici
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) =
         holder.bind(getItem(position))
@@ -1818,7 +1852,7 @@ binding.aMainRcvBooks.adapter = BookAdapter(
 
 ## Bonus pour la perfection : Nommage dans les repository
 
-Les noms méthodes dans les repository sont assez normalisés :
+Les noms méthodes dans les repository ne doivent pas faire apparaitre le nom de l'entité qu'il fournisse :
 
 ```kotlin
 interface BookRepository {
@@ -1835,7 +1869,7 @@ interface BookRepository {
 
 ## Bonus pour la perfection : Validation et material design
 
-On en avait déjà un peu parlé auparavant.
+On en avait déjà un peu parlé auparavant pour la validation.
 
 Mettons un peu de material design avec :
 
@@ -1845,6 +1879,8 @@ Mettons un peu de material design avec :
     <com.google.android.material.textfield.TextInputEditText />
 </com.google.android.material.textfield.TextInputLayout>
 ```
+
+Cela permettra d'afficher les erreurs par champs de manière **beautiful** :sparkles:.
 
 Soit, dans fragment_create_book.xml :
 
@@ -2028,20 +2064,12 @@ viewModel.saveBook.observe( // Mettre à jour
 // Ajoutez
 viewModel.title.observe(viewLifecycleOwner) { viewModel.validateTitle() }
 viewModel.titleError.observe(viewLifecycleOwner) {
-    binding.aCreateBookEdtTitle.error = if (it) {
-        "Shouldn't be empty"
-    } else {
-        null
-    }
+    binding.aCreateBookEdtTitle.error = if (it) "Shouldn't be empty" else null
 }
 
 viewModel.author.observe(viewLifecycleOwner) { viewModel.validateAuthor() }
 viewModel.authorError.observe(viewLifecycleOwner) {
-    binding.aCreateBookEdtAuthor.error = if (it) {
-        "Shouldn't be empty"
-    } else {
-        null
-    }
+    binding.aCreateBookEdtAuthor.error = if (it) "Shouldn't be empty" else null
 }
 
 viewModel.showValidationError.observe(viewLifecycleOwner) {
@@ -2135,4 +2163,9 @@ Ajoutez un nouveau bloc style et utilisez ce style :
 
 ![device-2020-11-04-015709](assets/device-2020-11-04-015709.png)
 
-C'est bon. C'est fini. :smile:
+## Le last : Extraire les strings.
+
+Tout les strings (qui apparait à l'écran) doivent apparaitre dans `strings.xml`  comme les messages de validation.
+
+Allez c'est bon. C'est fini. :smile:
+
