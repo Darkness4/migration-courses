@@ -23,7 +23,7 @@ interface BookDao {
     suspend fun deleteOne(book: BookModel)
 
     @Query("SELECT * FROM Book WHERE title=:title")
-    suspend fun findById(title: String): BookModel
+    suspend fun findById(title: String): BookModel?
 
     @Query("SELECT * FROM Book WHERE author=:author")
     suspend fun find(author: String): List<BookModel>

@@ -18,7 +18,7 @@ class BookRepositoryImpl @Inject constructor(
     private val bookDao: BookDao,
     private val bookshelfDataSource: BookshelfDataSource
 ) : BookRepository {
-    override suspend fun addBook(book: Book): Result<Unit> {
+    override suspend fun create(book: Book): Result<Unit> {
         return withContext(Dispatchers.Default) {
             bookshelfDataSource.addBook(book.asModel())
             bookDao.insert(book.asModel())
@@ -26,19 +26,21 @@ class BookRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getBook(title: String): Result<Book> {
+    override suspend fun findById(title: String): Result<Book> {
         return withContext(Dispatchers.Default) {
             try {
                 val book = bookshelfDataSource.findOneBook(title)
-                bookDao.insert(book)
-                Result.Success(book.asEntity())
+                book?.let {
+                    bookDao.insert(book)
+                    Result.Success(book.asEntity())
+                } ?: Result.Failure(Exception("Element not found."))
             } catch (e: Throwable) {
                 Result.Failure(e)
             }
         }
     }
 
-    override suspend fun getAllBooks(): Result<List<Book>> {
+    override suspend fun find(): Result<List<Book>> {
         return withContext(Dispatchers.Default) {
             try {
                 val paginatedDto = bookshelfDataSource.findBooks(null)
@@ -50,7 +52,7 @@ class BookRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getBooksOf(author: String): Result<List<Book>> {
+    override suspend fun find(author: String): Result<List<Book>> {
         return withContext(Dispatchers.Default) {
             try {
                 val paginatedDto = bookshelfDataSource.findBooks(author)
@@ -62,11 +64,11 @@ class BookRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getTotalNumberOfBooks(): Result<Int> {
+    override suspend fun count(): Result<Int> {
         return Result.Success(bookDao.count())
     }
 
-    override suspend fun clearAllBooks(): Result<Unit> {
+    override suspend fun clear(): Result<Unit> {
         return try {
             bookshelfDataSource.clearAllBooks()
             bookDao.clear()
@@ -76,7 +78,19 @@ class BookRepositoryImpl @Inject constructor(
         }
     }
 
-    override fun watchAllBooks(): Flow<Result<List<Book>>> {
+    override suspend fun deleteById(title: String): Result<Book> {
+        return try {
+            val bookModel = bookshelfDataSource.deleteOneBook(title)
+            bookModel?.let {
+                bookDao.deleteOne(bookModel)
+                return Result.Success(bookModel.asEntity())
+            } ?: Result.Failure(Exception("Element not found."))
+        } catch (e: Throwable) {
+            Result.Failure(e)
+        }
+    }
+
+    override fun watch(): Flow<Result<List<Book>>> {
         return bookDao.watch()
             .map<List<BookModel>, Result<List<Book>>> { Result.Success(it.map { model -> model.asEntity() }) }
             .catch { emit(Result.Failure(it)) }

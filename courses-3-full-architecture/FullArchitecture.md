@@ -60,6 +60,17 @@ class MainActivity : AppCompatActivity() {
 Dans le `MainViewModel`, implémentez `fun clearAllBooks()` :
 
 ```kotlin
+// MainViewModel.kt
+fun clearAllBooks() {
+    bookshelf.clearAllBooks()
+    _books.value = bookshelf.getAllBooks()
+}
+```
+
+Et donc dans le `Bookshelf` :
+
+```kotlin
+// Bookshelf.kt
 fun clearAllBooks() = storage.clear()
 ```
 
@@ -136,11 +147,60 @@ dependencies {
 
 ## Tâche : Appliquer les fonctions suspend dans bookshelf
 
-Un fonction `suspend` (`suspend fun do()`) est un fonction qui se lance en arrière plan (plus précisément, dans une coroutine) et attend une réponse.
+Un fonction `suspend` (`suspend fun do()`) est un fonction qui se lance dans un thread ou une pool de threads (=coroutine) et attend une réponse.
 
-Par rapport à Javascript, cela est équivalent faire `await do()`. Par conséquent, cela force à attendre le résultat et empêcher le fire-and-forget.
+Par rapport à Javascript, cela est équivalent faire `await do()`. Par conséquent, cela force à attendre le résultat et empêcher le fire-and-forget accidentel.
 
-Kotlin est dit `sequential` par défaut, comparé à JS qui est `async` by default. C'est-à-dire que si on déclare :
+Exemple avec le langage Dart (qui possède async/await nativement et sera plus facile à expliquer) :
+
+```dart
+// Dart utilise la syntaxe Java
+Future<void> doFirst() async {
+    doStuffForALogTime();
+}
+Future<void> doSecond() async {
+    doStuffForALogTime2();
+}
+
+Future<void> main() async {
+    final future = doFirst();  // future=Future<void> object
+    final future2 = doSecond();  // future2=Future<void> object
+}
+```
+
+En lançant le programme de cette manière, **le programme va actuellement s'arrêter abruptement.** En effet, nous avons oubliés de `await`. Par conséquent, `promise` et `promise2` tournent dans des threads en arrière-plan, mais la fonction `main` sera déjà terminé vu qu'elle tourne le thread principal. Si on était en bas niveau, il s'agit d'un cas de `fork/join`, où `async` = `fork` et `await` = `join`. Donc, lancer une fonction `async` va `fork` vers un nouveau thread et `await` va `join` ce thread au résultat.
+
+```dart
+// Solution pour régler ce problème
+Future<void> doFirst() async {
+    doStuffForALogTime();
+}
+Future<void> doSecond() async {
+    doStuffForALogTime2();
+}
+
+Future<void> main() async {
+    final result = await doFirst();  // result=Void object
+    final result2 = await doSecond();  // result2=Void object
+}
+```
+
+Cela est équivalent en Kotlin à :
+
+```kotlin
+suspend fun doFirst(): Unit {
+    doStuffForALogTime()
+}
+suspend fun doSecond(): Unit {
+    doStuffForALogTime2()
+}
+fun main() = runBlocking<Unit> {
+    val result = doFirst()  // result=Unit object
+    val result2 = doSecond()  // result2=Unit object
+}
+```
+
+C'est pour cela que Kotlin est dit `sequential` par défaut, comparé à JS qui est `async` by default. C'est-à-dire que si on déclare :
 
 ```kotlin
 suspend fun doSomethingUsefulOne(): Int {
@@ -165,7 +225,7 @@ runBlocking<Unit> {
 
 Les fonctions exécutent à la suite (et non en parallèle) !
 
-Pour les lancer en parallèle, on peut utiliser `launch` (fire-and-forget) ou `async` (async-and-await).
+Pour les lancer en parallèle, on peut utiliser **`launch`** (fire-and-forget) ou **`async`** (async-and-await).
 
 ```kotlin
 fun main() = runBlocking<Unit> {
@@ -175,9 +235,49 @@ fun main() = runBlocking<Unit> {
 }
 ```
 
-On utilise `.await()` pour les `async` pour récupérer les résultats. (Les `launch` sont des fire-and-forget. Ils n'ont pas de `.await()`).
+On utilise `.await()` pour les `async` pour récupérer les résultats. (Les `launch` sont des fire-and-forget. Ils n'ont pas de `.await()`). On retrouve le pattern async-await.
 
-Par conséquent, sachant que Core KTX implémentent des scopes de coroutines dans les `ViewModel`, appelés `viewModelScope`. On pourra lancer en parallèle en faisant `viewModelScope.launch{ /* do */ }`.
+Equivalent en Dart :
+
+```dart
+Future<int> doSomethingUsefulOne() async {
+    delay(1000L); // pretend we are doing something useful here
+    return 13;
+}
+Future<int> doSomethingUsefulTwo() async {
+    delay(1000L); // pretend we are doing something useful here, too
+    return 29;
+}
+Future<void> main() async {
+    final future = doFirst();
+    final future2 = doSecond();
+    print("The answer is ${await future + await future2}")
+}
+```
+
+Avec `launch` :
+
+```kotlin
+fun main() = runBlocking<Unit> {
+    launch { doSomethingUsefulOne() }
+    launch { doSomethingUsefulTwo() }
+}
+```
+
+```dart
+Future<void> main() async {
+    final future = doFirst();
+    final future2 = doSecond();
+}
+```
+
+Cependant, remarquez que Kotlin possède une spécificité qui est le **"Coroutine scope".** C'est exactement ce que cela signifie : il s'agit d'un scope définissant quel morceau de bloc de code peut être lancé avec `suspend`. Avec Dart, JS et autre langage basé sur async-await, le scope est définit avec **async** est au niveau de la fonction obligatoirement.
+
+Avec Kotlin, on peut se permettre d'être plus précis. En définissant une coroutine scope, on est capable de lier ce scope avec un lifecycle.
+
+Par exemple, `runBlocking` créer un scope selon les accolades et attends jusqu'à que les "jobs"/"tâches" soient terminés.
+
+Par conséquent, sachant que Core KTX implémentent des scopes de coroutines dans les `ViewModel`, appelés `viewModelScope`. On pourra lancer en parallèle en faisant `viewModelScope.launch{ /* do */ }`. Les `viewModelScope` sont liés au lifecycle des `ViewModel` et donc, des Fragments/Activity.
 
 **Mais avant de faire cela, marquons toutes nos méthodes avec `suspend`.**
 
@@ -227,6 +327,13 @@ class MainViewModel(private val bookshelf: Bookshelf) : ViewModel() {
         }
     }
     
+    fun clearAllBooks() {
+        viewModelScope.launch {
+            bookshelf.clearAllBooks()
+            _books.value = bookshelf.getAllBooks()
+        }
+    }
+    
     // ...
 }
 ```
@@ -241,13 +348,13 @@ Actuellement, Android tourne sous 3 catégories de threads :
 - `Dispatchers.IO` ou IO Thread (single-threaded) pour l'écriture et lecture (Réseau, Cache, littéralement input/output)
 - `Dispatchers.Default` ou Default Threads (dual-threaded ou égale au nombre de cores) pour le travail intense (JSON parsing, algorithmes, DiffUtils)
 
-Ces 3 catégories de threads sont très communs et l'objectif est de ne jamais bloquer les threads UI.
+Ces 3 catégories de threads sont très communs et **l'objectif est de ne jamais bloquer les threads UI**.
 
 ![Dangerously Austin Powers - blocking the ui thread I too like to live life dangerously](assets/44700357.jpg)
 
 A chaque fois que nous faisons `launch`, **le contexte de coroutines est celui par défaut `Dispatchers.Default`**, ce qui permet d'être obligatoirement d'être sécurisé en terme de thread.
 
-Cependant, une fois que nous devons faire appel à l'UI ou à l'IO, nous devons utiliser la méthode `withContext(Dispatchers.IO)` ou `withContext(Dispatchers.Main)`.
+Cependant, une fois que nous devons faire appel à l'UI ou à l'IO, nous devons utiliser la méthode `withContext(Dispatchers.Main)` ou `withContext(Dispatchers.IO)`.
 
 On peut également utiliser `launch(Dispatchers.XX)` et `async(Dispatchers.XX)` pour initialement lancer dans un contexte.
 
@@ -264,17 +371,17 @@ viewModelScope.launch(Dispatchers.Main) {  // Pour les LiveData
 }
 ```
 
-Remarquez que changer de contexte n'est pas un "fire-and-forget" (`withContext` peut retourner une valeur).
+Remarquez que changer de contexte n'est pas un "fire-and-forget". On ne perd pas de données en changeant de contexte.
 
 Pour plus d'informations : [Composing Suspending Functions](https://kotlinlang.org/docs/reference/coroutines/composing-suspending-functions.html) et [Coroutine Context and Dispatchers](https://kotlinlang.org/docs/reference/coroutines/coroutine-context-and-dispatchers.html)
 
 ## Tâche : Mettez le contexte `Dispatchers.Main` aux bon endroits
 
-Afin de respecter la séparation des responsabilités, **il n'est pas de la responsabilité d'un ViewModel d'appliquer le contexte `Dispatchers.IO`.** Cela sera les méthodes qui elle-même auront le contexte `Dispatchers.IO`.
+Afin de respecter la séparation des responsabilités, **il n'est pas de la responsabilité d'un ViewModel d'appliquer le contexte `Dispatchers.IO`.** Cela sera les méthodes des services de bas niveau qui elle-même auront le contexte `Dispatchers.IO`.
 
 Notre modèle se concentrera sur `Dispatchers.Main` ou `Dispatchers.Default`.
 
-Avec ce que vous avez compris, mettez le bon contexte. Cela prend 2 lignes :
+Avec ce que vous avez compris, mettez le bon contexte. Cela prend 3 lignes :
 
 ```kotlin
 class MainViewModel(private val bookshelf: Bookshelf) : ViewModel() {
@@ -283,14 +390,21 @@ class MainViewModel(private val bookshelf: Bookshelf) : ViewModel() {
         get() = _books
 
     init {
-        viewModelScope.launch(Dispatchers.Main) {
+        viewModelScope.launch(Dispatchers.Main) {  // ici
             _books.value = bookshelf.getAllBooks()
         }
     }
 
     fun addBook(book: Book) {
-        viewModelScope.launch(Dispatchers.Main) {
+        viewModelScope.launch(Dispatchers.Main) {  // ici
             bookshelf.addBook(book)
+            _books.value = bookshelf.getAllBooks()
+        }
+    }
+    
+    fun clearAllBooks() {
+        viewModelScope.launch(Dispatchers.Main) {
+            bookshelf.clearAllBooks()
             _books.value = bookshelf.getAllBooks()
         }
     }
@@ -298,7 +412,7 @@ class MainViewModel(private val bookshelf: Bookshelf) : ViewModel() {
     // ...
 ```
 
-Cela devrait suffire. Ca sera la responsabilité de `bookshelf` de dire si `addBook` ou `getAllBooks` est dans `Dispatchers.Default` ou `Dispatchers.IO`.
+Cela devrait suffire. Ca sera la responsabilité de `bookshelf` de dire si `addBook`, `getAllBooks` ou `clearAllBooks` est dans `Dispatchers.Default` ou `Dispatchers.IO`.
 
 Donc, on devrait aller dans `Bookshelf` et appliquer `Dispatchers.Default`.
 
@@ -352,6 +466,8 @@ Note : `<out R>` définit la variance du générique `R`. Googlez pour connaitre
 ## Tâche : Cache et `Flow` avec Room
 
 Room est une base de donnée basé sur SQLite et permet de stocker de nombreux objets complexes. C'est assez similaire à une ORM, cependant, il est beaucoup plus limité qu'un véritable ORM.
+
+Il possède cependant un système de migration (versioning), ce qui permet d'être assez flexible en production.
 
 Dans `database`, faites une classe abstraite `Database` qui hérite de `RoomDatabase` :
 
@@ -433,7 +549,7 @@ interface BookDao {
     suspend fun deleteOne(book: BookModel)
 
     @Query("SELECT * FROM Book WHERE title=:title")
-    suspend fun findById(title: String): BookModel
+    suspend fun findById(title: String): BookModel?
 
     @Query("SELECT * FROM Book WHERE author=:author")
     suspend fun find(author: String): List<BookModel>
@@ -453,9 +569,13 @@ Notes :
 
 Les deux première méthodes permettent l'insertion avec une `List` ou avec plusieurs arguments.
 
-La `watch` récupère les livres du cache et observe tout changement.
+La `watch` récupère les livres du cache et observe tout changement. Il s'agit d'un **flux de données**.
 
-**On supprimera la 5e une fois que nous avons tout refactorisé.**
+**Notes à propos du type de retour** :
+
+- Si non-nullable (`T`), alors fait crasher avec une `NullPointerException` si pas trouvé
+- Si nullable `T?`,  alors retourne `null` si pas trouvé
+- `List<T>`, alors vide si pas trouvé
 
 ### **Déclarons les DAO dans la `Database` et dans le `DataModule`.**
 
@@ -559,6 +679,7 @@ interface BookRepository {
     suspend fun getBooksOf(author: String): List<Book>
     suspend fun getTotalNumberOfBooks(): Int
     suspend fun clearAllBooks()
+    fun watchAllBooks(): Flow<List<Book>>
 }
 ```
 
@@ -589,6 +710,10 @@ class BookRepositoryImpl: BookRepository {
     }
 
     override suspend fun clearAllBooks() {
+        TODO("Not yet implemented")
+    }
+    
+    override fun watchAllBooks(): Flow<List<Book>> {
         TODO("Not yet implemented")
     }
 }
@@ -626,7 +751,7 @@ class BookRepositoryImpl @Inject constructor(private val bookDao: BookDao) : Boo
     }
 
     override suspend fun getBook(title: String): Book? {
-        return bookDao.findById(title).asEntity()
+        return bookDao.findById(title)?.asEntity()
     }
 
     override suspend fun getAllBooks(): List<Book> {
@@ -675,7 +800,7 @@ class BookRepositoryImpl @Inject constructor(private val bookDao: BookDao) : Boo
 
     override suspend fun getBook(title: String): Book? {
         return withContext(Dispatchers.Default) {
-            bookDao.findById(title).asEntity()
+            bookDao.findById(title)?.asEntity()
         }
     }
 
@@ -715,6 +840,12 @@ En effet, l'objectif d'une telle architecture basé sur le repository est de ne 
 
 L'application **doit lire en continue** le cache afin d'utiliser les anciennes données et réactualiser si connecté à internet.
 
+### `Flow`
+
+Alors qu'une fonction `suspend` retourne 1 valeur de manière asynchrone, `Flow` retourne plusieurs valeurs asynchrones.
+
+Ce `Flow` peut également être observé, mais on va préférer à le convertir en `LiveData`.
+
 ### N'utilisez plus `getAllBooks` mais `watchAllBooks`
 
 Dans `BookRepository` et son implémentation, créez une méthode `watchAllBooks(): Flow<List<Book>>` et utilisez `bookDao.watch()`.
@@ -732,22 +863,42 @@ override fun watchAllBooks(): Flow<List<Book>> {
 Allez dans le `MainViewModel`, supprimez `_books` et changez `books` par :
 
 ```kotlin
-val books: LiveData<List<Book>>
-    get() = bookRepository.watchAllBooks()
-        .asLiveData(viewModelScope.coroutineContext + Dispatchers.Default)
+val books = bookRepository.watchAllBooks()
+	.asLiveData(viewModelScope.coroutineContext + Dispatchers.Default)
 ```
 
 On utilise `Dispatchers.Default`, car, `asLiveData ` peut être intensif.
 
 Remplacez `_books.value = bookRepository.getAllBooks()` par `bookRepository.getAllBooks()`. **En effet,** lors de exécution de `bookRepository.getAllBooks()`, le repository se chargera de télécharger les livres et de les placer en cache.
 
-**Supprimez donc le `bookRepository.getAllBooks()` dans `addBook`**, car la valeur se réactualise automatiquement maintenant.
+**Supprimez également le `bookRepository.getAllBooks()` dans `addBook` et `clearAllBooks`**, car la valeur se réactualise automatiquement maintenant.
 
 ### Conclusion
 
 Il ne reste plus que l'HTTP... courage !
 
 ## Tâche : Retrofit
+
+### Permission
+
+Dans le `AndroidManifest.xml`, ajoutez :
+
+```xml
+<uses-permission android:name="android.permission.INTERNET" />
+```
+
+Exemple :
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.ismin.android">
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        ...
+    </application>
+</manifest>
+```
 
 ### Commencez directement avec le BookshelfDataSource
 
@@ -771,7 +922,7 @@ interface BookshelfDataSource {
     suspend fun findBooks(@Query("author") author: String?): PaginatedDto<BookModel>
 
     @GET("books/{title}")
-    suspend fun findOneBook(@Path("title") title: String): BookModel
+    suspend fun findOneBook(@Path("title") title: String): BookModel?
 
     @DELETE("books/{title}")
     suspend fun deleteOneBook(@Path("title") title: String): BookModel?
@@ -1056,8 +1207,10 @@ class BookRepositoryImpl @Inject constructor(
     override suspend fun getBook(title: String): Book? {
         return withContext(Dispatchers.Default) {
             val book = bookshelfDataSource.findOneBook(title)
-            bookDao.insert(book)
-            book.asEntity()
+            book?.let {
+                bookDao.insert(book)
+            	book.asEntity()
+            }
         }
     }
 
@@ -1230,8 +1383,10 @@ class BookRepositoryImpl @Inject constructor(
         return withContext(Dispatchers.Default) {
             try {
                 val book = bookshelfDataSource.findOneBook(title)
-                bookDao.insert(book)
-                Result.Success(book.asEntity())
+                book?.let {
+                    bookDao.insert(book)
+                    Result.Success(book.asEntity())
+                } ?: Result.Failure(Exception("Element not found."))
             } catch (e: Throwable) {
                 Result.Failure(e)
             }
@@ -1320,15 +1475,14 @@ viewModel.networkStatus.observe(this) { result ->
                                       }
 ```
 
-Dans le `MainViewModel`, changez également le type de `books` par `LiveData<Result<List<Book>>>`.
+Dans le `MainViewModel`, changez également le type de `books` par `LiveData<Result<List<Book>>>` (note : c'est déjà fait).
 
 Cela donne :
 
 ```kotlin
 class MainViewModel(private val bookRepository: BookRepository) : ViewModel() {
-    val books: LiveData<Result<List<Book>>>
-        get() = bookRepository.watchAllBooks()
-            .asLiveData(viewModelScope.coroutineContext + Dispatchers.Default)
+    val books = bookRepository.watchAllBooks()
+        .asLiveData(viewModelScope.coroutineContext + Dispatchers.Default)  // LiveData<Result<List<Book>>>
 
     private val _networkStatus = MutableLiveData<Result<Unit>>()
     val networkStatus: LiveData<Result<Unit>>
@@ -1346,7 +1500,7 @@ class MainViewModel(private val bookRepository: BookRepository) : ViewModel() {
         }
     }
 
-    fun clear() {
+    fun clearAllBooks() {
         viewModelScope.launch(Dispatchers.Main) {
             _networkStatus.value = bookRepository.clearAllBooks()
         }
@@ -1430,3 +1584,555 @@ En terme de code, vous avez atteint le niveau maximale.
 
 Il ne reste plus qu'à découvrir l'écosystème autour d'Android. (Tensorflow lite, Google Maps, ...)
 
+## Bonus pour la perfection : Scroll to refresh
+
+Dans `MainViewModel`, il temps de refactoriser (extraire) :
+
+```kotlin
+viewModelScope.launch(Dispatchers.Main) {
+    _networkStatus.value = bookRepository.getAllBooks().map { Unit }
+}
+```
+
+En une méthode :
+
+```kotlin
+private fun refresh() {
+    viewModelScope.launch(Dispatchers.Main) {
+        _networkStatus.value = bookRepository.getAllBooks().map { Unit }
+    }
+}
+```
+
+Pour une action refresh, on a besoin de garder l'état (`false` = ne charge pas, `true` = charge). L'action est donc stateful :
+
+```kotlin
+private val _manualRefresh = MutableLiveData(false)
+val manualRefresh: LiveData<Boolean>
+    get() = _manualRefresh
+
+fun manualRefresh() {
+    _manualRefresh.value = true
+}
+
+private fun manualRefreshDone() {
+    _manualRefresh.value = false
+}
+```
+
+Nous n'avons pas besoin d'observer depuis l'Activity, ni besoin de faire un adaptateur, car le type est `boolean ` est compatible avec un `SwipeRefreshLayout`.
+
+Cependant, complétez la méthode `refresh` et `manualRefresh`  :
+
+```kotlin
+private fun refresh() {
+    viewModelScope.launch(Dispatchers.Main) {
+        _networkStatus.value = bookRepository.getAllBooks().map { Unit }
+        manualRefreshDone()
+    }
+}
+```
+
+```kotlin
+fun manualRefresh() {
+    _manualRefresh.value = true
+    refresh()
+}
+```
+
+
+
+**Dans fragment_book_list.xml, englobez le `RecyclerView` avec un `androidx.swiperefreshlayout.widget.SwipeRefreshLayout`** :
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <data>
+
+        <variable
+            name="viewModel"
+            type="com.ismin.android.ui.viewmodels.MainViewModel" />
+    </data>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        tools:context=".ui.fragments.BookListFragment">
+
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+            android:id="@+id/swipe_refresh"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:onRefreshListener="@{viewModel::manualRefresh}"
+            app:refreshing="@{viewModel.manualRefresh}">
+            
+        	<androidx.recyclerview.widget.RecyclerView ... />
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+        <Button ... />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>
+```
+
+## Bonus pour la perfection : Delete par item
+
+Je pense qu'avec tous les cours passés, ça devrait être trivial.
+
+row_book.xml :
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <data>
+
+        <variable
+            name="book"
+            type="com.ismin.android.domain.entities.Book" />
+    </data>
+
+    <androidx.constraintlayout.widget.ConstraintLayout>
+
+        <TextView
+            android:id="@+id/r_book_txv_title"/>
+
+        <TextView
+            android:id="@+id/r_book_txv_author"/>
+
+        <TextView
+            android:id="@+id/r_book_txv_date"/>
+
+        <ImageView
+            android:id="@+id/r_book_imv_logo" />
+
+        <Button
+            android:id="@+id/delete_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:text="Delete"
+            app:layout_constraintBottom_toBottomOf="@+id/r_book_txv_date"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@+id/r_book_txv_title" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>
+```
+
+BookAdapter :
+
+```kotlin
+class BookAdapter(private val onClickListener: OnClickListener) :
+    ListAdapter<Book, BookAdapter.ViewHolder>(DiffCallback) {
+
+    companion object DiffCallback : DiffUtil.ItemCallback<Book>() {
+        override fun areItemsTheSame(oldItem: Book, newItem: Book) = oldItem.title == newItem.title
+
+        override fun areContentsTheSame(oldItem: Book, newItem: Book) = oldItem == newItem
+    }
+
+    class ViewHolder(
+        private val binding: RowBookBinding,
+        private val onClickListener: OnClickListener
+    ) : RecyclerView.ViewHolder(binding.root) {
+        fun bind(item: Book) {
+            binding.book = item
+            binding.deleteButton.setOnClickListener { onClickListener.onClick(item) }
+            binding.executePendingBindings()
+        }
+    }
+
+    fun interface OnClickListener {
+        fun onClick(book: Book)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
+        ViewHolder(
+            RowBookBinding.inflate(LayoutInflater.from(parent.context), parent, false),
+            onClickListener
+        )
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) =
+        holder.bind(getItem(position))
+}
+```
+
+BookRepository :
+
+```kotlin
+interface BookRepository {
+    suspend fun addBook(book: Book): Result<Unit>
+    suspend fun getBook(title: String): Result<Book>
+    suspend fun getAllBooks(): Result<List<Book>>
+    suspend fun getBooksOf(author: String): Result<List<Book>>
+    suspend fun getTotalNumberOfBooks(): Result<Int>
+    suspend fun clearAllBooks(): Result<Unit>
+    suspend fun removeBook(title: String): Result<Book>  // Ici
+    fun watchAllBooks(): Flow<Result<List<Book>>>
+}
+```
+
+```kotlin
+class BookRepositoryImpl @Inject constructor(
+    private val bookDao: BookDao,
+    private val bookshelfDataSource: BookshelfDataSource
+) : BookRepository {
+    // ...
+	override suspend fun removeBook(title: String): Result<Book> {
+        return try {
+            val bookModel = bookshelfDataSource.deleteOneBook(title)
+            bookModel?.let {
+                bookDao.deleteOne(bookModel)
+                return Result.Success(bookModel.asEntity())
+            } ?: Result.Failure(Exception("Element not found."))
+        } catch (e: Throwable) {
+            Result.Failure(e)
+        }
+    }
+}
+```
+
+MainViewModel :
+
+```kotlin
+// MainViewModel
+fun removeBook(book: Book) {
+    viewModelScope.launch {
+        _networkStatus.value = bookRepository.removeBook(book.title).map{ Unit }
+    }
+}
+```
+
+BookListFragment :
+
+```kotlin
+// BookListFragment -- changez la ligne
+binding.aMainRcvBooks.adapter = BookAdapter(
+    onClickListener = { activityViewModel.removeBook(it) }
+)
+```
+
+## Bonus pour la perfection : Nommage dans les repository
+
+Les noms méthodes dans les repository sont assez normalisés :
+
+```kotlin
+interface BookRepository {
+    suspend fun create(book: Book): Result<Unit>
+    suspend fun findById(title: String): Result<Book>
+    suspend fun find(): Result<List<Book>>
+    suspend fun find(author: String): Result<List<Book>>
+    suspend fun count(): Result<Int>
+    suspend fun clear(): Result<Unit>
+    suspend fun deleteById(title: String): Result<Book>
+    fun watch(): Flow<Result<List<Book>>>
+}
+```
+
+## Bonus pour la perfection : Validation et material design
+
+On en avait déjà un peu parlé auparavant.
+
+Mettons un peu de material design avec :
+
+```xml
+<com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.textfield.TextInputEditText />
+</com.google.android.material.textfield.TextInputLayout>
+```
+
+Soit, dans fragment_create_book.xml :
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <data>
+
+        <variable
+            name="viewModel"
+            type="com.ismin.android.ui.viewmodels.CreateBookViewModel" />
+    </data>
+
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:context=".ui.fragments.CreateBookFragment">
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/a_create_book_edt_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            android:autofillHints="title"
+            android:ems="10"
+            android:hint="Title"
+            app:layout_constraintBottom_toTopOf="@id/a_create_book_edt_author"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/edit_text_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:autofillHints="name"
+                android:ems="10"
+                android:imeOptions="actionDone"
+                android:inputType="textPersonName"
+                android:text="@={viewModel.title}" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/a_create_book_edt_author"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            android:hint="Author"
+            app:layout_constraintBottom_toTopOf="@+id/a_create_book_txv_date"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/edit_test_author"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:autofillHints="name"
+                android:ems="10"
+                android:imeOptions="actionDone"
+                android:inputType="textPersonName"
+                android:text="@={viewModel.author}" />
+
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <TextView
+            android:id="@+id/a_create_book_edt_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="16dp"
+            android:onClick="@{() -> viewModel.showDatePicker()}"
+            android:textAppearance="@style/TextAppearance.AppCompat.Body2"
+            app:date="@{viewModel.date}"
+            app:layout_constraintBottom_toTopOf="@+id/a_create_book_btn_save"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            tools:text="29/01/1998" />
+
+        <Button
+            android:id="@+id/a_create_book_btn_save"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:onClick="@{() -> viewModel.saveBook()}"
+            android:text="Sauvegarder"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+
+        <TextView
+            android:id="@+id/a_create_book_txv_date"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:labelFor="@+id/a_create_book_edt_date"
+            android:text="Date"
+            app:layout_constraintBottom_toTopOf="@+id/a_create_book_edt_date"
+            app:layout_constraintEnd_toEndOf="@+id/a_create_book_edt_date"
+            app:layout_constraintHorizontal_bias="0.0"
+            app:layout_constraintStart_toStartOf="@+id/a_create_book_edt_date" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</layout>
+```
+
+Maintenant, la validation du `CreateBookViewModel` :
+
+```kotlin
+// CreateBookViewModel
+private val _showValidationError = MutableLiveData<Unit?>()
+val showValidationError: LiveData<Unit?>
+	get() = _showValidationError
+
+fun showValidationError() {
+    _showValidationError.value = Unit
+}
+
+fun showValidationErrorDone() {
+    _showValidationError.value = null
+}
+
+private val _titleError = MutableLiveData(true)
+val titleError: LiveData<Boolean>
+	get() = _titleError
+
+private val _authorError = MutableLiveData(true)
+val authorError: LiveData<Boolean>
+	get() = _authorError
+
+val isValid: Boolean
+	get() = _titleError.value == false && _authorError.value == false
+
+fun validate() {
+    validateTitle()
+    validateAuthor()
+}
+
+fun validateTitle() {
+    _titleError.value = title.value.isNullOrBlank()
+}
+
+fun validateAuthor() {
+    _authorError.value = author.value.isNullOrBlank()
+}
+```
+
+Le fragment :
+
+```kotlin
+// CreateBookFragment.onCreateView
+viewModel.saveBook.observe( // Mettre à jour
+    viewLifecycleOwner,
+    {
+        it?.let {
+            viewModel.validate()
+            if (viewModel.isValid) {
+                viewModel.toBook()?.let { book ->
+                                         activityViewModel.addBook(book)
+                                         findNavController().popBackStack()
+                                        }
+                viewModel.saveBookDone()
+            } else {
+                viewModel.showValidationError()
+            }
+        }
+    }
+)
+
+// Ajoutez
+viewModel.title.observe(viewLifecycleOwner) { viewModel.validateTitle() }
+viewModel.titleError.observe(viewLifecycleOwner) {
+    binding.aCreateBookEdtTitle.error = if (it) {
+        "Shouldn't be empty"
+    } else {
+        null
+    }
+}
+
+viewModel.author.observe(viewLifecycleOwner) { viewModel.validateAuthor() }
+viewModel.authorError.observe(viewLifecycleOwner) {
+    binding.aCreateBookEdtAuthor.error = if (it) {
+        "Shouldn't be empty"
+    } else {
+        null
+    }
+}
+
+viewModel.showValidationError.observe(viewLifecycleOwner) {
+    it?.let {
+        Toast.makeText(
+            context,
+            "There are some errors.",
+            Toast.LENGTH_LONG
+        ).show()
+        viewModel.showValidationErrorDone()
+    }
+}
+
+// Fire validate at least once
+viewModel.validate()
+```
+
+## Bonus pour la perfection : Fermer un clavier manuellement
+
+Lorsque l'on change de fragment, le contexte est perdu et le clavier ne se ferme pas.
+
+Pour y remédier à ce problème, on le ferme manuellement :
+
+```kotlin
+// CreateBookFragment
+override fun onCreateView(
+    inflater: LayoutInflater,
+    container: ViewGroup?,
+    savedInstanceState: Bundle?
+): View? {
+    // ...
+    viewModel.saveBook.observe(  // Mettre à jour
+        viewLifecycleOwner,
+        {
+            it?.let {
+                viewModel.validate()
+                if (viewModel.isValid) {
+                    viewModel.toBook()?.let { book ->
+                                             activityViewModel.addBook(book)
+                                             closeKeyBoard()  // Ici !
+                                             findNavController().popBackStack()
+                                            }
+                    viewModel.saveBookDone()
+                } else {
+                    viewModel.showValidationError()
+                }
+            }
+        }
+    )
+    // ...
+}
+
+// CreateBookFragment
+private fun closeKeyBoard() {
+    activity?.currentFocus?.let {
+        val imm =
+        requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(it.windowToken, 0)
+    }
+}
+```
+
+## Bonus pour la perfection : BottomSheetDialogFragment
+
+Dans `CreateBookFragment.kt`, remplacez `Fragment` par `BottomSheetDialogFragment`.
+
+Dans `nav_graph.xml`, remplacez la balise `<fragment>` par une balise `dialog` avec l'id correspondant `CreateBookFragment`.
+
+**Si vous testez,** vous remarquerez que le clavier passe par dessus du `BottomSheet`.
+
+Pour changer ce comportement, allez dans le `style.xml`.
+
+Ajoutez un nouveau bloc style et utilisez ce style :
+
+```xml
+<resources>
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.DarkActionBar">
+        <!-- Customize your theme here. -->
+        ...
+        <item name="bottomSheetDialogTheme">@style/DialogStyle</item>
+    </style>
+
+    <style name="DialogStyle" parent="Theme.Design.Light.BottomSheetDialog">
+        <item name="android:windowIsFloating">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowSoftInputMode">adjustResize</item>
+    </style>
+</resources>
+```
+
+![device-2020-11-04-015709](assets/device-2020-11-04-015709.png)
+
+C'est bon. C'est fini. :smile:

@@ -35,6 +35,42 @@ class CreateBookViewModel : ViewModel() {
         _showDatePicker.value = null
     }
 
+    private val _showValidationError = MutableLiveData<Unit?>()
+    val showValidationError: LiveData<Unit?>
+        get() = _showValidationError
+
+    fun showValidationError() {
+        _showValidationError.value = Unit
+    }
+
+    fun showValidationErrorDone() {
+        _showValidationError.value = null
+    }
+
+    private val _titleError = MutableLiveData(true)
+    val titleError: LiveData<Boolean>
+        get() = _titleError
+
+    private val _authorError = MutableLiveData(true)
+    val authorError: LiveData<Boolean>
+        get() = _authorError
+
+    val isValid: Boolean
+        get() = _titleError.value == false && _authorError.value == false
+
+    fun validate() {
+        validateTitle()
+        validateAuthor()
+    }
+
+    fun validateTitle() {
+        _titleError.value = title.value.isNullOrBlank()
+    }
+
+    fun validateAuthor() {
+        _authorError.value = author.value.isNullOrBlank()
+    }
+
     fun toBook(): Book? {
         val title = title.value
         val author = author.value

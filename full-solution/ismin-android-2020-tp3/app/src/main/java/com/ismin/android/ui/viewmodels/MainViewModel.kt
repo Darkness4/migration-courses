@@ -13,29 +13,33 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainViewModel(private val bookRepository: BookRepository) : ViewModel() {
-    val books: LiveData<Result<List<Book>>>
-        get() = bookRepository.watchAllBooks()
-            .asLiveData(viewModelScope.coroutineContext + Dispatchers.Default)
+    val books = bookRepository.watch()
+        .asLiveData(viewModelScope.coroutineContext + Dispatchers.Default)
 
     private val _networkStatus = MutableLiveData<Result<Unit>>()
     val networkStatus: LiveData<Result<Unit>>
         get() = _networkStatus
 
     init {
+        refresh()
+    }
+
+    private fun refresh() {
         viewModelScope.launch(Dispatchers.Main) {
-            _networkStatus.value = bookRepository.getAllBooks().map { Unit }
+            _networkStatus.value = bookRepository.find().map { Unit }
+            manualRefreshDone()
         }
     }
 
     fun addBook(book: Book) {
         viewModelScope.launch(Dispatchers.Main) {
-            _networkStatus.value = bookRepository.addBook(book)
+            _networkStatus.value = bookRepository.create(book)
         }
     }
 
     fun clear() {
         viewModelScope.launch(Dispatchers.Main) {
-            _networkStatus.value = bookRepository.clearAllBooks()
+            _networkStatus.value = bookRepository.clear()
         }
     }
 
@@ -49,6 +53,25 @@ class MainViewModel(private val bookRepository: BookRepository) : ViewModel() {
 
     fun goToCreationDone() {
         _goToCreation.value = null
+    }
+
+    fun removeBook(book: Book) {
+        viewModelScope.launch {
+            _networkStatus.value = bookRepository.deleteById(book.title).map{ Unit }
+        }
+    }
+
+    private val _manualRefresh = MutableLiveData(false)
+    val manualRefresh: LiveData<Boolean>
+        get() = _manualRefresh
+
+    fun manualRefresh() {
+        _manualRefresh.value = true
+        refresh()
+    }
+
+    private fun manualRefreshDone() {
+        _manualRefresh.value = false
     }
 
     class Factory(

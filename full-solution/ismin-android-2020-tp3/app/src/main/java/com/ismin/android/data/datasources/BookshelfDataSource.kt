@@ -22,7 +22,7 @@ interface BookshelfDataSource {
     suspend fun findBooks(@Query("author") author: String?): PaginatedDto<BookModel>
 
     @GET("books/{title}")
-    suspend fun findOneBook(@Path("title") title: String): BookModel
+    suspend fun findOneBook(@Path("title") title: String): BookModel?
 
     @DELETE("books/{title}")
     suspend fun deleteOneBook(@Path("title") title: String): BookModel?

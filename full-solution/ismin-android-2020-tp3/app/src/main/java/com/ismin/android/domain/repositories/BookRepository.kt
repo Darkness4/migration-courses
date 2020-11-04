@@ -5,11 +5,12 @@ import com.ismin.android.domain.entities.Book
 import kotlinx.coroutines.flow.Flow
 
 interface BookRepository {
-    suspend fun addBook(book: Book): Result<Unit>
-    suspend fun getBook(title: String): Result<Book>
-    suspend fun getAllBooks(): Result<List<Book>>
-    suspend fun getBooksOf(author: String): Result<List<Book>>
-    suspend fun getTotalNumberOfBooks(): Result<Int>
-    suspend fun clearAllBooks(): Result<Unit>
-    fun watchAllBooks(): Flow<Result<List<Book>>>
+    suspend fun create(book: Book): Result<Unit>
+    suspend fun findById(title: String): Result<Book>
+    suspend fun find(): Result<List<Book>>
+    suspend fun find(author: String): Result<List<Book>>
+    suspend fun count(): Result<Int>
+    suspend fun clear(): Result<Unit>
+    suspend fun deleteById(title: String): Result<Book>
+    fun watch(): Flow<Result<List<Book>>>
 }

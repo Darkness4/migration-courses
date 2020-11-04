@@ -14,7 +14,7 @@ import com.ismin.android.ui.adapters.BookAdapter
 import com.ismin.android.ui.viewmodels.MainViewModel
 
 class BookListFragment : Fragment() {
-    private val activityViewModel by viewModels<MainViewModel> (
+    private val activityViewModel by viewModels<MainViewModel>(
         ownerProducer = { requireActivity() }
     )
     private lateinit var binding: FragmentBookListBinding
@@ -39,7 +39,9 @@ class BookListFragment : Fragment() {
             }
         )
 
-        binding.aMainRcvBooks.adapter = BookAdapter()
+        binding.aMainRcvBooks.adapter = BookAdapter(
+            onClickListener = { activityViewModel.removeBook(it) }
+        )
         val linearLayoutManager = LinearLayoutManager(context)
         binding.aMainRcvBooks.layoutManager = linearLayoutManager
 
