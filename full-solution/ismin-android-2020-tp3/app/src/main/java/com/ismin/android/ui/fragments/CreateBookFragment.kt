@@ -67,27 +67,18 @@ class CreateBookFragment : BottomSheetDialogFragment() {
                     )
                     dialog.show()
                     viewModel.showDatePickerDone()
-
                 }
             }
         )
 
         viewModel.title.observe(viewLifecycleOwner) { viewModel.validateTitle() }
         viewModel.titleError.observe(viewLifecycleOwner) {
-            binding.aCreateBookEdtTitle.error = if (it) {
-                "Shouldn't be empty"
-            } else {
-                null
-            }
+            binding.aCreateBookEdtTitle.error = if (it) "Shouldn't be empty" else null
         }
 
         viewModel.author.observe(viewLifecycleOwner) { viewModel.validateAuthor() }
         viewModel.authorError.observe(viewLifecycleOwner) {
-            binding.aCreateBookEdtAuthor.error = if (it) {
-                "Shouldn't be empty"
-            } else {
-                null
-            }
+            binding.aCreateBookEdtAuthor.error = if (it) "Shouldn't be empty" else null
         }
 
         viewModel.showValidationError.observe(viewLifecycleOwner) {

@@ -326,18 +326,14 @@ class MainViewModel(private val bookshelf: Bookshelf) : ViewModel() {
         }
     }
 
-    fun addBook(book: Book) {
-        viewModelScope.launch {
-            bookshelf.addBook(book)
-            _books.value = bookshelf.getAllBooks()
-        }
+    fun addBook(book: Book) = viewModelScope.launch {
+        bookshelf.addBook(book)
+        _books.value = bookshelf.getAllBooks()
     }
     
-    fun clearAllBooks() {
-        viewModelScope.launch {
-            bookshelf.clearAllBooks()
-            _books.value = bookshelf.getAllBooks()
-        }
+    fun clearAllBooks() = viewModelScope.launch {
+        bookshelf.clearAllBooks()
+        _books.value = bookshelf.getAllBooks()
     }
     
     // ...
@@ -403,18 +399,14 @@ class MainViewModel(private val bookshelf: Bookshelf) : ViewModel() {
         }
     }
 
-    fun addBook(book: Book) {
-        viewModelScope.launch(Dispatchers.Main) {  // ici
-            bookshelf.addBook(book)
-            _books.value = bookshelf.getAllBooks()
-        }
+    fun addBook(book: Book) = viewModelScope.launch(Dispatchers.Main) {  // ici
+        bookshelf.addBook(book)
+        _books.value = bookshelf.getAllBooks()
     }
     
-    fun clearAllBooks() {
-        viewModelScope.launch(Dispatchers.Main) {  // ici
-            bookshelf.clearAllBooks()
-            _books.value = bookshelf.getAllBooks()
-        }
+    fun clearAllBooks() = viewModelScope.launch(Dispatchers.Main) {  // ici
+        bookshelf.clearAllBooks()
+        _books.value = bookshelf.getAllBooks()
     }
     
     // ...
@@ -1524,18 +1516,15 @@ class MainViewModel(private val bookRepository: BookRepository) : ViewModel() {
         }
     }
 
-    fun addBook(book: Book) {
-        viewModelScope.launch(Dispatchers.Main) {
-            _networkStatus.value = bookRepository.addBook(book)
-        }
+    fun addBook(book: Book) = viewModelScope.launch(Dispatchers.Main) {
+        _networkStatus.value = bookRepository.addBook(book)
     }
 
-    fun clearAllBooks() {
-        viewModelScope.launch(Dispatchers.Main) {
-            _networkStatus.value = bookRepository.clearAllBooks()
-        }
+
+    fun clearAllBooks() = viewModelScope.launch(Dispatchers.Main) {
+        _networkStatus.value = bookRepository.clearAllBooks()
     }
-    
+
     // ...
 }
 ```
@@ -1631,10 +1620,8 @@ viewModelScope.launch(Dispatchers.Main) {
 En une méthode :
 
 ```kotlin
-private fun refresh() {
-    viewModelScope.launch(Dispatchers.Main) {
-        _networkStatus.value = bookRepository.getAllBooks().map { Unit }
-    }
+private fun refresh() = viewModelScope.launch(Dispatchers.Main) {
+    _networkStatus.value = bookRepository.getAllBooks().map { Unit }
 }
 ```
 
@@ -1659,11 +1646,9 @@ Nous n'avons pas besoin d'observer depuis l'Activity, ni besoin de faire un adap
 Cependant, complétez la méthode `refresh` et `manualRefresh`  :
 
 ```kotlin
-private fun refresh() {
-    viewModelScope.launch(Dispatchers.Main) {
-        _networkStatus.value = bookRepository.getAllBooks().map { Unit }
-        manualRefreshDone()  // Ici
-    }
+private fun refresh() = viewModelScope.launch(Dispatchers.Main) {
+    _networkStatus.value = bookRepository.getAllBooks().map { Unit }
+    manualRefreshDone()  // Ici
 }
 ```
 
@@ -1834,10 +1819,8 @@ MainViewModel :
 
 ```kotlin
 // MainViewModel
-fun removeBook(book: Book) {
-    viewModelScope.launch {
-        _networkStatus.value = bookRepository.removeBook(book.title).map{ Unit }
-    }
+fun removeBook(book: Book) = viewModelScope.launch {
+    _networkStatus.value = bookRepository.removeBook(book.title).map{ Unit }
 }
 ```
 

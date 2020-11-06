@@ -24,23 +24,17 @@ class MainViewModel(private val bookRepository: BookRepository) : ViewModel() {
         refresh()
     }
 
-    private fun refresh() {
-        viewModelScope.launch(Dispatchers.Main) {
-            _networkStatus.value = bookRepository.find().map { Unit }
-            manualRefreshDone()
-        }
+    private fun refresh() = viewModelScope.launch(Dispatchers.Main) {
+        _networkStatus.value = bookRepository.find().map { Unit }
+        manualRefreshDone()
     }
 
-    fun addBook(book: Book) {
-        viewModelScope.launch(Dispatchers.Main) {
-            _networkStatus.value = bookRepository.create(book)
-        }
+    fun addBook(book: Book) = viewModelScope.launch(Dispatchers.Main) {
+        _networkStatus.value = bookRepository.create(book)
     }
 
-    fun clear() {
-        viewModelScope.launch(Dispatchers.Main) {
-            _networkStatus.value = bookRepository.clear()
-        }
+    fun clear() = viewModelScope.launch(Dispatchers.Main) {
+        _networkStatus.value = bookRepository.clear()
     }
 
     private val _goToCreation = MutableLiveData<Unit?>(null)
@@ -55,10 +49,8 @@ class MainViewModel(private val bookRepository: BookRepository) : ViewModel() {
         _goToCreation.value = null
     }
 
-    fun removeBook(book: Book) {
-        viewModelScope.launch {
-            _networkStatus.value = bookRepository.deleteById(book.title).map{ Unit }
-        }
+    fun removeBook(book: Book) = viewModelScope.launch {
+        _networkStatus.value = bookRepository.deleteById(book.title).map { Unit }
     }
 
     private val _manualRefresh = MutableLiveData(false)
